@@ -123,19 +123,28 @@ label.f{display:flex;align-items:center;gap:8px;font-weight:700}
 .seat:focus{outline:none}
 .word{cursor:default}
 /* periodic grid */
-.pt{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
+.pt{display:grid;grid-template-columns:repeat(8,1fr) 58px;gap:6px}
+.plab{display:flex;align-items:center;font-size:13px;font-weight:700;color:var(--md-sys-color-on-surface-variant);line-height:1.1}
 .ghead{text-align:center;font-weight:700;font-size:14px;color:var(--md-sys-color-on-surface-variant)}
-.cell{border:1px solid var(--md-sys-color-outline);border-radius:var(--r8);background:#fff;color:#1d1b20;padding:4px 6px;min-height:88px;display:flex;flex-direction:column;position:relative;text-align:left;cursor:pointer}
+.cell{border:1px solid var(--md-sys-color-outline);border-radius:var(--r8);background:#fff;color:#1d1b20;padding:3px 6px;min-height:96px;display:flex;flex-direction:column;position:relative;text-align:left;cursor:pointer}
 .cell.empty{border:1px dashed var(--md-sys-color-outline-variant);background:none;cursor:default}
 .cell .z{font-size:13px}
 .cell .sym{font-size:15px;color:#555}
-.cell .ion{font-size:26px;font-weight:700;text-align:center;margin:auto 0 0}
-.cell .vb{font-size:12px;text-align:center;color:#444}
+.cell .ion{font-size:34px;font-weight:700;text-align:center;margin:auto 0 0;line-height:1.1}
+.cell .vb{font-size:16px;font-weight:700;text-align:center;color:#222;line-height:1.2;margin-bottom:2px}
+.cell .vb.loses{color:#C2185B;-webkit-text-stroke:.45px #000}
+.cell .vb.gains{color:#1565C0;-webkit-text-stroke:.45px #000}
+.cell.sbcell{background:#FFF59D;border:3px solid #F9A825;cursor:default}
+.cell.sbcell .ion{color:#8a6d00}
+.legend{margin:0;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.legend .dot{width:14px;height:14px;border-radius:50%;display:inline-block}
+.legend .dot.core{background:#1565C0}.legend .dot.val{background:#4FC3F7;border:1.5px solid #0D47A1;margin-left:10px}
 .cell .badge{position:absolute;top:3px;right:4px;font-size:11px;font-weight:700;padding:1px 5px;border-radius:6px;background:#E8DEF8;color:#1D192B}
 .cell .badge.ok{background:#D7F5DF;color:#0d3b1e}
 .cell .badge.bad{background:#F9DEDC;color:#410E0B}
-.pt.small .cell{min-height:70px}
-.pt.small .ion{font-size:21px}
+.pt.small .cell{min-height:74px}
+.pt.small .cell .vb{font-size:12px;white-space:nowrap;-webkit-text-stroke:0}
+.pt.small .ion{font-size:26px}
 /* layout helpers */
 .split{display:flex;gap:16px;height:100%;width:100%}
 .split > .l{flex:0 0 52%;overflow:auto}
@@ -184,7 +193,7 @@ const CONFIG = {
   WRONG_TRIES_BEFORE_ANSWER: 2, // wrong tries before the answer is shown
   INCLUDE_EXTENSION: true,   // include the antimony question and the "same electrons as S2-" question
   SOUND_DEFAULT: false,      // sound on for a student's first visit
-  VERSION: 'Nov 8, 2026, update 3',
+  VERSION: 'Nov 8, 2026, update 4',
 };
 /* ============================================================== */
 
@@ -294,8 +303,9 @@ function cardSVG(c){const z=c.z;let s=`<svg viewBox="0 0 210 263" role="img" ari
   c.seats.forEach((ring,ri)=>ring.forEach((v,i)=>{const P=SEATPOS[ri][i];const st=['empty','electron','lost electron','gained electron'][v];
     s+=`<g transform="translate(${P.x.toFixed(2)},${P.y.toFixed(2)})"${c.interactive?` class="seat" role="button" tabindex="0" data-act="seat" data-r="${ri}" data-i="${i}" data-fk="s${ri}-${i}" aria-label="Energy level ${ri+1}, seat ${i+1}: ${st}"`:''}>
 <circle r="7" fill="#fff"/>${DOTS}`;
-    if(v==1||v==3)s+=`<circle r="4.3" fill="#1565C0"/>`;
-    if(v==2)s+=`<circle r="4.3" fill="#1565C0" opacity=".3"/><path d="M-4,-4L4,4M4,-4L-4,4" stroke="#222" stroke-width="1.5"/>`;
+    const val=c.vi!=null&&ri==c.vi;
+    if(v==1||v==3)s+=val?`<circle r="4.3" fill="#4FC3F7" stroke="#0D47A1" stroke-width=".9"/>`:`<circle r="4.3" fill="#1565C0"/>`;
+    if(v==2)s+=`<circle r="4.3" fill="${val?'#4FC3F7':'#1565C0'}" opacity=".35"/><path d="M-4,-4L4,4M4,-4L-4,4" stroke="#222" stroke-width="1.5"/>`;
     if(c.interactive)s+=`<circle class="hl" r="7.3"/><circle r="6.2" fill="transparent"/>`;
     s+=`</g>`;
     if(v==2)s+=moveArrow(P,false);
@@ -329,6 +339,7 @@ function tallyHTML(p,e,opts={}){const m=Math.max(p,e),lo=Math.min(p,e),hl=!!opts
   <div class="small">${txt} <span aria-hidden="true">${hl&&p!=e?'The <mark class="hlmk">highlighted</mark> particles make the charge.':'(Outlined = no partner)'}</span></div></div>`}
 
 /* ---------- icons ---------- */
+const LEGEND=`<p class="legend"><span class="dot core"></span>core electrons <span class="dot val"></span><b>valence electrons</b></p>`;
 const IC={
  help:'<svg viewBox="0 0 24 24"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg>',
  son:'<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.47 4.47 0 0 0 2.5-4zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>',
@@ -367,8 +378,9 @@ function curCard(){const z=S.my[S.cur];if(!S.cards[z])S.cards[z]=newCard(z);retu
 function cardView(c){const ans=answer(c.z);
   const count=c.ph=='nuc'||c.ph=='build'?'':c.choice=='shares'?(c.shareN||''):c.choice=='nochange'?'0':c.choice?String(moves(c.seats)):'';
   const ion=(c.ph=='ion'||c.ph=='done')?{q:c.q}:null;
-  let glow=null;if(c.ph=='ion'||c.ph=='done'){if(c.choice!='shares')glow=glowRing(c.seats)}
-  return cardSVG({z:c.z,p:c.ph=='nuc'?c.p:c.z,n:CONFIG.ASK_NEUTRONS&&c.ph=='nuc'?c.n:nn(c.z),seats:c.seats,choice:(c.ph=='envy'||c.ph=='ion'||c.ph=='done')?c.choice:null,count,ion,glow,hlBox:c.ph=='ion',shareText:c.choice=='shares'&&(c.ph=='envy'||c.ph=='done'),interactive:c.ph=='build'||c.ph=='envy'})}
+  let glow=null;if(c.ph=='envy')glow=vIdx(c.z);if(c.ph=='ion'||c.ph=='done'){if(c.choice!='shares')glow=glowRing(c.seats)}
+  const vi=(c.ph=='envy'||c.ph=='ion'||c.ph=='done')?vIdx(c.z):null;
+  return cardSVG({z:c.z,p:c.ph=='nuc'?c.p:c.z,n:CONFIG.ASK_NEUTRONS&&c.ph=='nuc'?c.n:nn(c.z),seats:c.seats,choice:(c.ph=='envy'||c.ph=='ion'||c.ph=='done')?c.choice:null,count,ion,glow,vi,hlBox:c.ph=='ion',shareText:c.choice=='shares'&&(c.ph=='envy'||c.ph=='done'),interactive:c.ph=='build'||c.ph=='envy'})}
 function msgHTML(m){if(!m)return'';const tag={good:'Nice!',hint:'Hint:',info:'Note:'}[m.kind];return `<div class="msg ${m.kind}" role="status"><b class="tag">${tag}</b><span>${m.html}</span></div>`}
 function renderCards(){const c=curCard(),z=c.z,lim=CONFIG.WRONG_TRIES_BEFORE_ANSWER;
   const chips=`<div class="cchips" aria-label="Your cards">${S.my.map((mz,i)=>{const cd=S.cards[mz];const dn=cd&&cd.ph=='done';const cls=i==S.cur?'cur':dn?'dn':i>S.cur?'lk':'';
@@ -389,10 +401,10 @@ function renderCards(){const c=curCard(),z=c.z,lim=CONFIG.WRONG_TRIES_BEFORE_ANS
    <div class="row" role="group" aria-label="Circle one">${CHOICES.map(([k,l])=>`<button class="chip ${c.choice==k?'on':''}" data-act="choice" data-v="${k}" aria-pressed="${c.choice==k}">${l}</button>`).join('')}</div>
    ${c.choice=='loses'?`<p style="margin:0">Click electrons in the <b>valence energy level</b> to remove them. Removed: <b>${mv}</b> e⁻</p>`:''}
    ${c.choice=='gains'?`<p style="margin:0">Click empty seats in the <b>valence energy level</b> to add electrons. Added: <b>${mv}</b> e⁻</p>`:''}
-   <div class="row"><button class="md-btn filled" data-act="checkEnvy" ${c.choice?'':'disabled'}>Check</button></div>`}
+   <div class="row"><button class="md-btn filled" data-act="checkEnvy" ${c.choice?'':'disabled'}>Check</button></div>${LEGEND}`}
   else if(c.ph=='done'&&c.choice=='shares'){body=`<h2>Card complete · ${nm(z)}</h2><p class="lead">Atoms in group 4A share electrons in covalent bonds instead of forming ions.</p><div class="row"><button class="md-btn filled" data-act="next">${S.cur<S.my.length-1?'Next card':teamOn()?'Go to team check':'Go to patterns'}</button></div>`}
   else if(c.ph=='ion'||c.ph=='done'){const dis=c.ph=='done'?'disabled':'';
-   body=`${stepT(4,'Write the ion')}<p class="lead">Use the counter. Choose the charge. It goes in the <mark class="hlmk">highlighted</mark> spot on the card.</p>
+   body=`${stepT(4,'Write the ion symbol')}<p class="lead">Use the counter. Choose the charge. It goes in the <mark class="hlmk">highlighted</mark> spot on the card.</p>
    ${qTiles(c.q,'setQ','',dis)}
    <p style="margin:0;font-size:20px">Your ion: <b style="font-size:28px">${c.q==null?'?':ionHTML(z,c.q)}</b> <span class="small">${c.q===1||c.q===-1?`(a charge of ${qLabel(c.q)} is written as just ${c.q>0?'+':'−'})`:''}</span></p>
    <div class="row">${c.ph=='ion'?`<button class="md-btn filled" data-act="checkIon">Check ion</button>`:`<button class="md-btn filled" data-act="next">${S.cur<S.my.length-1?'Next card':teamOn()?'Go to team check':'Go to patterns'}</button>`}</div>`}
@@ -422,7 +434,7 @@ const A={
   if(tot!=z){hint(c,'build',`You placed ${tot} electron${tot==1?'':'s'}. A neutral atom has the same number of electrons as protons: <b>${z}</b>.`,`You need <b>${z}</b> electrons in all: ${want.filter(k=>k).join(', ')} from the inside out. Or press <b>Show me</b>.`);return}
   const bad=want.findIndex((k,i)=>k!=have[i]);
   if(bad>=0){hint(c,'build',`Fill each energy level before you start the next one. Energy level ${bad+1} holds ${CAPS[bad]} electrons.`,`From the inside out, ${nm(z)} is <b>${want.filter(k=>k).join(', ')}</b>. Or press <b>Show me</b>.`);return}
-  c.ph='envy';good(c,`${nm(z)} is ${want.filter(k=>k).join(', ')}. Its outer energy level has <b>${want[vIdx(z)]}</b> electron${want[vIdx(z)]>1?'s':''}.`)},
+  c.ph='envy';good(c,`${nm(z)} is ${want.filter(k=>k).join(', ')}. It has <b>${want[vIdx(z)]} valence electron${want[vIdx(z)]>1?'s':''}</b> in its valence (outer) energy level.`)},
  showBuild(){const c=curCard();c.seats=neutralSeats(c.z);c.msg={kind:'info',html:'Here is the atom. Compare it to yours, then press <b>Check atom</b>.'}},
  fillInner(){const c=curCard(),vi=vIdx(c.z);for(let ri=0;ri<vi;ri++)c.seats[ri]=c.seats[ri].map(()=>1);beep('tap')},
  clearSeats(){const c=curCard();c.seats=emptySeats()},
@@ -477,13 +489,17 @@ function vbText(ch,n){return ch=='nochange'?'no change':ch=='shares'?`shares ${n
 function myCardInfo(z){const c=S.cards[z];if(!c||c.ph!='done')return null;const e=eCount(c.seats),net=z-e;
   return{z,seats:c.seats,choice:c.choice,count:c.choice=='shares'?4:c.choice=='nochange'?0:moves(c.seats),ion:{q:net},html:netHTML(z,net)}}
 function cellInfo(z){return S.my.includes(z)?(myCardInfo(z)||{z,seats:neutralSeats(z),choice:null,count:'',ion:null,html:'?'}):teamCard(z)}
-function ptHTML(mode){let h=`<div class="pt${mode=='analysis'?' small':''}">`+['1A','2A','3A','4A','5A','6A','7A','8A'].map(g=>`<div class="ghead">${g}</div>`).join('');
+function ptHTML(mode,opts={}){const GL=['1/1A','2/2A','13/3A','14/4A','15/5A','16/6A','17/7A','18/8A'];
+  let h=`<div class="pt${mode=='analysis'?' small':''}">`+GL.map(g=>`<div class="ghead">${g}</div>`).join('')+'<div></div>';
   const grid={};for(let z=1;z<=20;z++)grid[PERIOD(z)+'-'+GROUP(z)]=z;
-  for(let p=1;p<=4;p++)for(let g=1;g<=8;g++){const z=grid[p+'-'+g];if(!z){h+=`<div class="cell empty" aria-hidden="true"></div>`;continue}
+  const rows=opts.sb?5:4;
+  for(let p=1;p<=rows;p++){for(let g=1;g<=8;g++){const z=grid[p+'-'+g];
+    if(p==5){h+=g==5?`<div class="cell sbcell" aria-label="Antimony goes here"><span class="z">51 <span class="sym">Sb</span></span><span class="ion">?</span></div>`:`<div class="cell empty" aria-hidden="true"></div>`;continue}
+    if(!z){h+=`<div class="cell empty" aria-hidden="true"></div>`;continue}
     const ci=cellInfo(z),mine=S.my.includes(z);let badge='';
     if(mode=='team'){if(mine)badge='<span class="badge">You</span>';else if(S.team.fixed[z])badge='<span class="badge ok">Fixed</span>';else if(S.team.verdict[z]=='ok')badge='<span class="badge ok">✓ OK</span>';}
-    else if(mine)badge='<span class="badge">You</span>';
-    h+=`<button class="cell" data-act="${mode=='team'?'openCard':'noop'}" data-z="${z}" aria-label="${nm(z)}: ${ionTxt(ci.html)}, ${vbText(ci.choice,ci.count)}">${badge}<span class="z">${z} <span class="sym">${sym(z)}</span></span><span class="ion">${ci.html}</span><span class="vb">${vbText(ci.choice,ci.count)}</span></button>`}
+    h+=`<button class="cell" data-act="${mode=='team'?'openCard':'noop'}" data-z="${z}" aria-label="${nm(z)}: ${ionTxt(ci.html)}, ${vbText(ci.choice,ci.count)}">${badge}<span class="z">${z} <span class="sym">${sym(z)}</span></span><span class="ion">${ci.html}</span><span class="vb ${ci.choice||''}">${vbText(ci.choice,ci.count)}</span></button>`}
+    h+=`<div class="plab">Period ${p}</div>`}
   return h+'</div>'}
 function renderTeam(){const T=S.team,nf=Object.keys(T.fixed).length,all=nf>=T.errs.length;
   const unchecked=[];for(let z=1;z<=20;z++)if(!S.my.includes(z)&&!T.verdict[z]&&!T.fixed[z])unchecked.push(z);
@@ -493,7 +509,7 @@ function renderTeam(){const T=S.team,nf=Object.keys(T.fixed).length,all=nf>=T.er
   ${T.note?msgHTML(T.note):''}
   <div class="row"><b>Found and fixed: ${nf} of ${T.errs.length}</b>${all?`<button class="md-btn filled" data-act="toAnalysis">Go to patterns</button>`:''}${!all&&!unchecked.length?`<span class="small">You checked every card. Some marked “OK” still have mistakes. Look again.</span>`:''}</div></div>`}
 function inspectorHTML(z){const T=S.team,ci=cellInfo(z),mine=S.my.includes(z),er=T.err[z],fx=T.fix[z];
-  const card=cardSVG({z,p:z,n:nn(z),seats:ci.seats,choice:ci.choice,count:ci.count,ion:ci.ion,glow:null,hlBox:!!fx&&!T.fixed[z]&&ci.choice!='shares',shareText:ci.choice=='shares'});
+  const card=cardSVG({z,p:z,n:nn(z),seats:ci.seats,choice:ci.choice,count:ci.count,ion:ci.ion,glow:null,vi:vIdx(z),hlBox:!!fx&&!T.fixed[z]&&ci.choice!='shares',shareText:ci.choice=='shares'});
   let side=(mine?'<p class="small" style="margin:0">Your card</p>':'')+tallyHTML(z,eCount(ci.seats),{hl:true});
   if(mine||T.fixed[z]){side+=T.fixed[z]?msgHTML({kind:'good',html:'You fixed this card.'}):'';side+=`<div class="row"><button class="md-btn filled" data-act="closeDlg">Close</button></div>`}
   else if(!fx){side+=`<p style="margin:0;font-size:18px">Is this card right?</p><div class="row"><button class="md-btn tonal" data-act="verdict" data-v="ok" data-z="${z}">Looks right</button><button class="md-btn outlined" data-act="verdict" data-v="bad" data-z="${z}">Has a mistake</button></div>${T.dnote&&T.dnote.z==z?msgHTML(T.dnote):''}<div class="row"><button class="md-btn text" data-act="closeDlg">Close</button></div>`}
@@ -552,7 +568,7 @@ function renderAnalysis(){const qs=qList(),k=qs[S.aq],a=S.ans;
    ${fin?'':`<div class="row"><button class="md-btn tonal" data-act="sameCheck">Check</button></div>`}
    ${s.ok?msgHTML({kind:'good',html:'Cl<sup>−</sup>, Ca<sup>2+</sup>, and P<sup>3−</sup> all have 18 electrons, like S<sup>2−</sup> and argon.'}):s.tries>lim?msgHTML({kind:'info',html:'S<sup>2−</sup> has 16 + 2 = 18 electrons. Cl<sup>−</sup> (17 + 1), Ca<sup>2+</sup> (20 − 2), and P<sup>3−</sup> (15 + 3) also have 18. Na<sup>+</sup> and O<sup>2−</sup> have 10.'}):s.tries?msgHTML({kind:'hint',html:'S<sup>2−</sup> has 16 + 2 = 18 electrons. Count the electrons in each ion: protons, then add or subtract the charge.'}):''}`}
   const last=S.aq==qs.length-1;
-  return `<div class="split"><div class="l">${ptHTML('analysis')}</div><div class="r">${chips}${q}<div class="row"><button class="md-btn outlined" data-act="aqPrev" ${S.aq?'':'disabled'}>Back</button><button class="md-btn filled" data-act="aqNext" ${qDone(k)?'':'disabled'}>${last?'Review my work':'Next'}</button>${qDone(k)?'':`<span class="small">${k=='pat'?'Write at least 3 words in each box.':k=='sb'||k=='same'?'Check your answer first.':'Write at least 3 words.'}</span>`}</div></div></div>`}
+  return `<div class="split"><div class="l">${ptHTML('analysis',{sb:k=='sb'})}</div><div class="r">${chips}${q}<div class="row"><button class="md-btn outlined" data-act="aqPrev" ${S.aq?'':'disabled'}>Back</button><button class="md-btn filled" data-act="aqNext" ${qDone(k)?'':'disabled'}>${last?'Review my work':'Next'}</button>${qDone(k)?'':`<span class="small">${k=='pat'?'Write at least 3 words in each box.':k=='sb'||k=='same'?'Check your answer first.':'Write at least 3 words.'}</span>`}</div></div></div>`}
 Object.assign(A,{
  aq(el){S.aq=+el.dataset.i},aqPrev(){S.aq=Math.max(0,S.aq-1)},
  aqNext(){if(S.aq<qList().length-1)S.aq++;else{S.phase='review';S.reached.review=1}},
@@ -618,7 +634,8 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
   if(S.team&&S.team.open&&/^fx|^reason/.test(el.dataset.act)){const fx=S.team.fix[S.team.open];if(fx)fx.msg=null}
   if(el.dataset.act=='reason'){f(el);render();return}f(el);render()});
 document.addEventListener('keydown',e=>{const el=e.target.closest&&e.target.closest('.seat');if(el&&(e.key=='Enter'||e.key==' ')){e.preventDefault();const c=curCard();if(c.msg&&c.msg.kind!='good')c.msg=null;A.seat(el);render()}
-  if(e.key=='Enter'&&e.target.id=='nmIn'){A.start();render()}});
+  if(e.key=='Enter'&&e.target.id=='nmIn'){A.start();render()}
+  if(e.key=='Enter'&&(e.target.id=='pIn'||e.target.id=='nIn')&&S.phase=='cards'){e.preventDefault();A.checkNuc();render()}});
 document.addEventListener('input',e=>{const t=e.target;
   if(t.id=='pIn'){curCard().p=t.value;save();return}
   if(t.id=='nIn'){curCard().n=t.value;save();return}

@@ -8,7 +8,7 @@ Live URL once pushed: `https://gibsonm1.github.io/Noble-Gas-Envy/`
 
 1. **Make cards** (default 6: Na, O, Mg, C, Cl, Ar). Each card has 4 steps:
    - Protons: enter p⁺. Neutrons are filled in for SS (`ASK_NEUTRONS`).
-   - Arrange electrons: shade seats (blue electrons) on the same energy-level template as the paper card.
+   - Arrange electrons: shade seats on the same energy-level template as the paper card. After the check, valence electrons turn light blue (core electrons stay dark blue), and step 3 shows a key for the two colors.
    - Noble gas envy: circle loses / gains / shares / no change, then click electrons out (X + arrow) or into empty seats (arrow in). The arrows curve out to the side edge of the card, never down toward the words. Choosing **shares** (4A) finishes the card, and the bottom reads "Shares 4 e⁻ in covalent bonds. Does not form an ion."
    - Write the ion: pick one charge tile, from 4− to 4+ (0 = no charge). 1+ shows as Na⁺ on the card. The charge spot on the card is highlighted. Cations show in red/pink and anions in blue, matching the counter.
    - The **p⁺/e⁻ counter** pairs every proton with an electron. The leftovers are highlighted in yellow, the same as the charge spot on the card, for the first 2 cards (`HIGHLIGHT_COUNTER_CARDS`). The counter hides itself after 3 first-try charges, and SS can reopen it.
@@ -17,7 +17,7 @@ Live URL once pushed: `https://gibsonm1.github.io/Noble-Gas-Envy/`
    - S²⁺ for S²⁻ (sign)
    - Ca⁺² (order)
    - SS find each mistake, pick the reason, and fix the card. False alarms are counted.
-3. **Find patterns.** Part II Q1–4, Making Sense, the Sb³⁻ question, and the "same electrons as S²⁻" question. The finished mini PT stays on screen the whole time.
+3. **Find patterns.** Part II Q1–4, Making Sense, the Sb³⁻ question, and the "same electrons as S²⁻" question. The finished mini PT stays on screen the whole time, with group labels (1/1A … 18/8A) and period labels. During the Sb question, a highlighted empty Sb box appears in period 5.
 4. **Finish.** A review with edit links, then the Finished screen with name, period, timestamp, first-try count, and hints used, plus a **Copy my answers** button.
 
 ## Teacher settings (CONFIG block at the top of the script)
@@ -54,4 +54,4 @@ Changing `CARDS_TO_MAKE` doesn't affect a student who has already started on tha
 - **Copy my answers** → paste into Classroom.
 - Close the tab, reopen it, and check that **Continue** resumes the work.
 
-Version: Nov 8, 2026, update 3
+Version: Nov 8, 2026, update 4
