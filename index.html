@@ -77,6 +77,16 @@ main{height:calc(100vh - 56px);display:flex;gap:16px;padding:8px 16px 22px;overf
 .tile.on{background:var(--md-sys-color-primary);color:var(--md-sys-color-on-primary);border-color:transparent}
 .tile.wide{width:auto;padding:0 14px;font-size:16px}
 .small{font-size:14px;color:var(--md-sys-color-on-surface-variant)}
+.qrow{display:flex;gap:6px;flex-wrap:wrap}
+.tile.qt{width:50px;font-size:19px;border-width:2px}
+.tile.qt.pos{border-color:var(--pos);color:var(--pos)}
+.tile.qt.neg{border-color:var(--neg);color:var(--neg)}
+.tile.qt.zero{border-color:var(--md-sys-color-outline)}
+.tile.qt.on{color:#fff;box-shadow:0 0 0 3px #F9A825}
+.tile.qt.pos.on{background:var(--pos)}.tile.qt.neg.on{background:var(--neg)}.tile.qt.zero.on{background:var(--md-sys-color-on-surface-variant);color:var(--md-sys-color-surface)}
+@media (prefers-color-scheme:dark){.tile.qt.on{color:#111}}
+.hlgrp{display:inline-flex;gap:3px;padding:3px 5px;margin:-3px -2px;border-radius:999px;background:#FFEB3B;box-shadow:0 0 0 2px #F9A825}
+mark.hlmk{background:#FFEB3B;color:#1d1b20;padding:0 3px;border-radius:3px}
 /* card progress chips */
 .cchips{display:flex;gap:6px;flex-wrap:wrap}
 .cc{min-width:52px;height:36px;border-radius:var(--r8);border:1px solid var(--md-sys-color-outline-variant);display:flex;align-items:center;justify-content:center;gap:4px;font-weight:700;background:none;padding:0 8px}
@@ -166,13 +176,14 @@ const CONFIG = {
   CARDS_TO_MAKE: 6,          // how many cards the student makes alone (1–20). 20 = whole set and skips the team check
   CARD_ORDER: [11,8,12,6,17,18,13,15,16,9,7,3,19,20,4,14,5,10,1,2], // which cards the student gets, first ones first (default: Na, O, Mg, C, Cl, Ar)
   TEAM_MISTAKES: 3,          // how many tablemate cards have a planted mistake to find and fix (0 = skip the team check)
-  ASK_NEUTRONS: true,        // student fills in neutrons like the paper card (false = protons only)
+  ASK_NEUTRONS: false,       // true = student calculates n⁰ like the paper card; false = neutrons are filled in for them
+  HIGHLIGHT_COUNTER_CARDS: 2, // highlight the unmatched particles in the counter for this many cards (0 = never, 99 = always)
   FADE_COUNTER_AFTER: 3,     // hide the p+/e- counter after this many cards with a first-try correct charge (0 = never hide)
-  FILL_SHORTCUT_AFTER: 1,    // unlock the "Fill inner rings" button after this many finished cards (0 = always on, 99 = never)
+  FILL_SHORTCUT_AFTER: 1,    // unlock the "Fill inner energy levels" button after this many finished cards (0 = always on, 99 = never)
   WRONG_TRIES_BEFORE_ANSWER: 2, // wrong tries before the answer is shown
   INCLUDE_EXTENSION: true,   // include the antimony question and the "same electrons as S2-" question
   SOUND_DEFAULT: false,      // sound on for a student's first visit
-  VERSION: 'Nov 8, 2026, update 1',
+  VERSION: 'Nov 8, 2026, update 2',
 };
 /* ============================================================== */
 
@@ -189,15 +200,15 @@ const CHOICES=[['loses','loses'],['gains','gains'],['shares','shares'],['nochang
 const REASONS=[['count','Wrong number of e⁻ moved'],['least','Not the least change'],['share','Should share (no ion)'],['mag','Charge number is wrong'],['sign','Charge sign (+/−) is wrong'],['order','Number and sign in wrong order']];
 const REASON_OK={count:['count','mag'],least:['least'],share:['share'],mag:['mag'],sign:['sign'],order:['order']};
 const ERR_POOL=[
- {z:15,type:'mag',choice:'gains',n:3,num:'',sign:MINUS},
- {z:16,type:'sign',choice:'gains',n:2,num:'2',sign:'+'},
+ {z:15,type:'mag',choice:'gains',n:3,q:-1},
+ {z:16,type:'sign',choice:'gains',n:2,q:2},
  {z:20,type:'order',choice:'loses',n:2,raw:'+2'},
- {z:14,type:'share',choice:'loses',n:4,num:'4',sign:'+'},
- {z:3,type:'least',choice:'gains',n:7,num:'7',sign:MINUS},
- {z:12,type:'count',choice:'loses',n:1,num:'',sign:'+'},
- {z:7,type:'sign',choice:'gains',n:3,num:'3',sign:'+'},
- {z:9,type:'mag',choice:'gains',n:1,num:'2',sign:MINUS},
- {z:4,type:'least',choice:'gains',n:6,num:'6',sign:MINUS},
+ {z:14,type:'share',choice:'loses',n:4,q:4},
+ {z:3,type:'least',choice:'gains',n:7,q:-7},
+ {z:12,type:'count',choice:'loses',n:1,q:1},
+ {z:7,type:'sign',choice:'gains',n:3,q:3},
+ {z:9,type:'mag',choice:'gains',n:1,q:-2},
+ {z:4,type:'least',choice:'gains',n:6,q:-6},
  {z:19,type:'order',choice:'loses',n:1,raw:'+1'},
 ];
 
@@ -219,9 +230,13 @@ const eCount=s=>s.flat().filter(v=>v==1||v==3).length;
 const moves=s=>s.flat().filter(v=>v==2||v==3).length;
 function glowRing(s){let g=null;s.forEach((r,ri)=>{if(r.some(v=>v==1||v==3))g=ri});return g}
 function cfgStr(s){return s.map(r=>r.filter(v=>v==1||v==3).length).filter(k=>k>0).join(', ')}
-function fmtIon(sy,num,sign,none,raw){if(raw)return `${sy}<sup>${raw}</sup>`;if(none||(!sign&&!num))return sy;return `${sy}<sup>${num&&num!='1'?num:''}${sign||''}</sup>`}
-function ionHTML(z,num,sign,none,raw){return fmtIon(sym(z),num,sign,none,raw)}
-function netHTML(z,net){if(!net)return sym(z);return ionHTML(z,Math.abs(net)>1?String(Math.abs(net)):'',net>0?'+':MINUS)}
+const qSup=q=>q==null||q==0?'':(Math.abs(q)>1?Math.abs(q):'')+(q>0?'+':MINUS);
+const qLabel=q=>q==0?'0':Math.abs(q)+(q>0?'+':MINUS);
+function fmtIon(sy,q,raw){if(raw)return `${sy}<sup>${raw}</sup>`;const t=qSup(q);return t?`${sy}<sup>${t}</sup>`:sy}
+function ionHTML(z,q,raw){return fmtIon(sym(z),q,raw)}
+const QS=[-4,-3,-2,-1,0,1,2,3,4];
+function qTiles(sel,act,extra='',dis=''){return `<div class="qrow" role="group" aria-label="Charge">${QS.map(q=>`<button class="tile qt ${q>0?'pos':q<0?'neg':'zero'} ${sel===q?'on':''}" data-act="${act}" data-v="${q}" ${extra} aria-pressed="${sel===q}" aria-label="charge ${q==0?'zero':Math.abs(q)+(q>0?' plus':' minus')}" ${dis}>${qLabel(q)}</button>`).join('')}</div>`}
+function netHTML(z,net){return ionHTML(z,net)}
 const SUP={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','−':'⁻','-':'⁻'};
 const supTxt=s=>[...String(s)].map(ch=>SUP[ch]||ch).join('');
 const ionTxt=h=>h.replace(/<sup>(.*?)<\/sup>/g,(m,a)=>supTxt(a));
@@ -229,15 +244,15 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const words=s=>String(s||'').trim().split(/\s+/).filter(Boolean).length;
 
 /* ---------- state ---------- */
-function fresh(){return{v:1,phase:'start',name:'',period:'',my:[],cur:0,cards:{},team:null,
-  ans:{pat:['','',''],lost:'',gained:'',identity:'',ms:'',sb:{num:'',sign:'',none:false,tries:0,ok:false},sbx:'',same:{sel:[],tries:0,ok:false}},
+function fresh(){return{v:2,phase:'start',name:'',period:'',my:[],cur:0,cards:{},team:null,
+  ans:{pat:['','',''],lost:'',gained:'',identity:'',ms:'',sb:{q:null,tries:0,ok:false},sbx:'',same:{sel:[],tries:0,ok:false}},
   aq:0,done:0,fadeN:0,started:null,finished:null,reached:{cards:1}}}
-function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.v==1)return s}catch(e){}return null}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.v==2)return s}catch(e){}return null}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 let S=load()||fresh();
 if(S.phase!='start'){S.lastPhase=S.phase;S.phase='start'}
 let SOUND=(()=>{try{const v=localStorage.getItem(SKEY);return v==null?CONFIG.SOUND_DEFAULT:v=='1'}catch(e){return CONFIG.SOUND_DEFAULT}})();
-function newCard(z){return{z,ph:'nuc',p:'',n:'',seats:emptySeats(),choice:null,shareN:0,ch:{num:'',sign:'',none:false},tries:{nuc:0,build:0,envy:0,ion:0},msg:null,showTally:false}}
+function newCard(z){return{z,ph:'nuc',p:'',n:'',seats:emptySeats(),choice:null,shareN:0,q:null,tries:{nuc:0,build:0,envy:0,ion:0},msg:null,showTally:false}}
 const teamOn=()=>CONFIG.CARDS_TO_MAKE<20&&CONFIG.TEAM_MISTAKES>0;
 
 /* ---------- sound ---------- */
@@ -269,13 +284,13 @@ function cardSVG(c){const z=c.z;let s=`<svg viewBox="0 0 210 263" role="img" ari
 <text x="126" y="25" text-anchor="middle" font-size="13" fill="#222">${nm(z)}</text>${MARKS}`;
   if(c.glow!=null)s+=`<circle cx="${CX}" cy="${CY}" r="${R[c.glow]}" fill="none" stroke="#7E57C2" stroke-width="5" opacity=".28"/>`;
   s+=`<circle cx="${CX}" cy="${CY}" r="${RN}" fill="#fff" stroke="#444" stroke-width="1.4"/>
-<text x="${CX}" y="${CY-6.5}" text-anchor="middle" dominant-baseline="central" font-size="10" fill="#222">${c.p!==''&&c.p!=null?`<tspan font-weight="700">${esc(c.p)}</tspan>`:'___'} p⁺</text>
-<text x="${CX}" y="${CY+8.5}" text-anchor="middle" dominant-baseline="central" font-size="10" fill="#222">${CONFIG.ASK_NEUTRONS?(c.n!==''&&c.n!=null?`<tspan font-weight="700">${esc(c.n)}</tspan>`:'___'):'___'} n⁰</text>`;
+<text x="${CX}" y="${CY-6.5}" text-anchor="middle" dominant-baseline="central" font-size="10" fill="#C2185B">${c.p!==''&&c.p!=null?`<tspan font-weight="700">${esc(c.p)}</tspan>`:'___'} p⁺</text>
+<text x="${CX}" y="${CY+8.5}" text-anchor="middle" dominant-baseline="central" font-size="10" fill="#222">${c.n!==''&&c.n!=null?`<tspan font-weight="700">${esc(c.n)}</tspan>`:'___'} n⁰</text>`;
   c.seats.forEach((ring,ri)=>ring.forEach((v,i)=>{const P=SEATPOS[ri][i];const st=['empty','electron','lost electron','gained electron'][v];
-    s+=`<g transform="translate(${P.x.toFixed(2)},${P.y.toFixed(2)})"${c.interactive?` class="seat" role="button" tabindex="0" data-act="seat" data-r="${ri}" data-i="${i}" data-fk="s${ri}-${i}" aria-label="Ring ${ri+1}, seat ${i+1}: ${st}"`:''}>
+    s+=`<g transform="translate(${P.x.toFixed(2)},${P.y.toFixed(2)})"${c.interactive?` class="seat" role="button" tabindex="0" data-act="seat" data-r="${ri}" data-i="${i}" data-fk="s${ri}-${i}" aria-label="Energy level ${ri+1}, seat ${i+1}: ${st}"`:''}>
 <circle r="7" fill="#fff"/>${DOTS}`;
-    if(v==1||v==3)s+=`<circle r="4.3" fill="#222"/>`;
-    if(v==2)s+=`<circle r="4.3" fill="#222" opacity=".3"/><path d="M-4,-4L4,4M4,-4L-4,4" stroke="#222" stroke-width="1.5"/>`;
+    if(v==1||v==3)s+=`<circle r="4.3" fill="#1565C0"/>`;
+    if(v==2)s+=`<circle r="4.3" fill="#1565C0" opacity=".3"/><path d="M-4,-4L4,4M4,-4L-4,4" stroke="#222" stroke-width="1.5"/>`;
     if(c.interactive)s+=`<circle class="hl" r="7.3"/><circle r="6.2" fill="transparent"/>`;
     s+=`</g>`;
     if(v==2)s+=arrow(P.x+P.ux*7,P.y+P.uy*7,P.x+P.ux*20,P.y+P.uy*20);
@@ -288,21 +303,24 @@ function cardSVG(c){const z=c.z;let s=`<svg viewBox="0 0 210 263" role="img" ari
 <text x="44" y="248" dominant-baseline="central" font-size="13" fill="#000">e⁻</text>
 <text x="70" y="248" dominant-baseline="central" font-size="13" fill="#000">becomes</text>
 <path d="M136,260H170V239.5H191V222.5H165V229H136Z" fill="none" stroke="#000" stroke-width=".9" stroke-dasharray="2.8 2.1"/>`;
+  if(c.hlBox)s+=`<ellipse cx="178" cy="231" rx="19" ry="14" fill="#FFEB3B" opacity=".6"/><ellipse cx="178" cy="231" rx="19" ry="14" fill="none" stroke="#F9A825" stroke-width="2.4"/>`;
   if(c.ion){s+=`<text x="151" y="246" text-anchor="middle" dominant-baseline="central" font-size="18" fill="#222">${sym(z)}</text>`;
-    const i=c.ion;let t='';if(i.raw)t=i.raw;else if(!i.none&&i.sign)t=(i.num&&i.num!='1'?i.num:'')+i.sign;else if(i.num)t=i.num;
+    const i=c.ion;const t=i.raw||qSup(i.q);
     if(t)s+=`<text x="178" y="231.5" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="700" fill="#222">${t}</text>`}
   return s+'</svg>'}
 
 /* ---------- tally (p+ / e- counter) ---------- */
-function tallyHTML(p,e,opts={}){const m=Math.max(p,e);let pr='',er='';
-  for(let i=0;i<m;i++){pr+=i<p?`<span class="tok p${i>=e?' un':''}" aria-hidden="true">+</span>`:`<span class="tok gap" aria-hidden="true"></span>`;
-    er+=i<e?`<span class="tok e${i>=p?' un':''}" aria-hidden="true">${MINUS}</span>`:`<span class="tok gap" aria-hidden="true"></span>`}
+function tallyHTML(p,e,opts={}){const m=Math.max(p,e),lo=Math.min(p,e),hl=!!opts.hl;let pr='',er='';
+  const tok=(cls,g)=>`<span class="tok ${cls}" aria-hidden="true">${g}</span>`,gap='<span class="tok gap" aria-hidden="true"></span>';
+  for(let i=0;i<lo;i++){pr+=tok('p','+');er+=tok('e',MINUS)}
+  let pu='',eu='';for(let i=lo;i<m;i++){pu+=i<p?tok('p un','+'):gap;eu+=i<e?tok('e un',MINUS):gap}
+  if(m>lo){if(hl){pr+=p>e?`<span class="hlgrp">${pu}</span>`:pu;er+=e>p?`<span class="hlgrp">${eu}</span>`:eu}else{pr+=pu;er+=eu}}
   const d=p-e;const txt=d>0?`${d} proton${d>1?'s have':' has'} no electron partner.`:d<0?`${-d} electron${-d>1?'s have':' has'} no proton partner.`:'Every proton has an electron partner.';
   return `<div class="box tally" aria-label="Counter: ${p} protons, ${e} electrons. ${txt}">
   <div class="thead"><h3>Counter</h3>${opts.hideBtn?`<button class="md-btn text" data-act="hideTally">Hide</button>`:''}</div>
   <div class="trow"><span class="lab">p⁺</span>${pr}<span class="small" style="margin-left:8px">${p}</span></div>
   <div class="trow"><span class="lab">e⁻</span>${er}<span class="small" style="margin-left:8px">${e}</span></div>
-  <div class="small">${txt} <span aria-hidden="true">(Outlined = no partner)</span></div></div>`}
+  <div class="small">${txt} <span aria-hidden="true">${hl&&p!=e?'The <mark class="hlmk">highlighted</mark> particles make the charge.':'(Outlined = no partner)'}</span></div></div>`}
 
 /* ---------- icons ---------- */
 const IC={
@@ -342,55 +360,53 @@ function renderStart(){const has=S.started&&S.my.length;
 function curCard(){const z=S.my[S.cur];if(!S.cards[z])S.cards[z]=newCard(z);return S.cards[z]}
 function cardView(c){const ans=answer(c.z);
   const count=c.ph=='nuc'||c.ph=='build'?'':c.choice=='shares'?(c.shareN||''):c.choice=='nochange'?'0':c.choice?String(moves(c.seats)):'';
-  const ion=(c.ph=='ion'||c.ph=='done')?c.ch:null;
+  const ion=(c.ph=='ion'||c.ph=='done')?{q:c.q}:null;
   let glow=null;if(c.ph=='ion'||c.ph=='done'){if(c.choice!='shares')glow=glowRing(c.seats)}
-  return cardSVG({z:c.z,p:c.ph=='nuc'?c.p:c.z,n:c.ph=='nuc'?c.n:(CONFIG.ASK_NEUTRONS?nn(c.z):''),seats:c.seats,choice:(c.ph=='envy'||c.ph=='ion'||c.ph=='done')?c.choice:null,count,ion,glow,interactive:c.ph=='build'||c.ph=='envy'})}
+  return cardSVG({z:c.z,p:c.ph=='nuc'?c.p:c.z,n:CONFIG.ASK_NEUTRONS&&c.ph=='nuc'?c.n:nn(c.z),seats:c.seats,choice:(c.ph=='envy'||c.ph=='ion'||c.ph=='done')?c.choice:null,count,ion,glow,hlBox:c.ph=='ion',interactive:c.ph=='build'||c.ph=='envy'})}
 function msgHTML(m){if(!m)return'';const tag={good:'Nice!',hint:'Hint:',info:'Note:'}[m.kind];return `<div class="msg ${m.kind}" role="status"><b class="tag">${tag}</b><span>${m.html}</span></div>`}
 function renderCards(){const c=curCard(),z=c.z,lim=CONFIG.WRONG_TRIES_BEFORE_ANSWER;
   const chips=`<div class="cchips" aria-label="Your cards">${S.my.map((mz,i)=>{const cd=S.cards[mz];const dn=cd&&cd.ph=='done';const cls=i==S.cur?'cur':dn?'dn':i>S.cur?'lk':'';
     return `<button class="cc ${cls}" ${i<=S.cur||dn?`data-act="pick" data-i="${i}"`:'disabled'} aria-label="Card ${mz} ${nm(mz)}${dn?', done':''}">${dn?IC.check.replace('<svg','<svg width="14" height="14"'):''}${sym(mz)}</button>`}).join('')}</div>`;
   let body='';
   const stepT=(n,t)=>`<h2>Step ${n} of 4 · ${t}</h2>`;
-  if(c.ph=='nuc'){body=`${stepT(1,'Nucleus')}<p class="lead">The atomic number is in the top-left corner of the card. Fill in the nucleus.</p>
+  if(c.ph=='nuc'){body=`${stepT(1,CONFIG.ASK_NEUTRONS?'Nucleus':'Protons')}<p class="lead">The atomic number is in the top-left corner of the card. How many protons are in the nucleus?</p>
    <div class="row"><label class="f">Protons (p⁺) <input class="md-input" type="number" min="0" max="40" id="pIn" data-fk="pIn" value="${esc(c.p)}"></label>
    ${CONFIG.ASK_NEUTRONS?`<label class="f">Neutrons (n⁰) <input class="md-input" type="number" min="0" max="40" id="nIn" data-fk="nIn" value="${esc(c.n)}"></label>`:''}</div>
    ${CONFIG.ASK_NEUTRONS?`<p class="small" style="margin:0">Atomic mass on the periodic table: <b>${EL[z][2].toFixed(EL[z][2]<10?3:2)}</b>. Mass number = atomic mass rounded to a whole number.</p>`:''}
    <div class="row"><button class="md-btn filled" data-act="checkNuc">Check nucleus</button></div>`}
   else if(c.ph=='build'){const placed=c.seats.flat().filter(v=>v==1).length;const sc=S.done>=CONFIG.FILL_SHORTCUT_AFTER;
-   body=`${stepT(2,'Electrons')}<p class="lead">A neutral atom has the same number of electrons as protons. Click a seat to shade it (add an electron). Click again to remove it. Fill the inner ring first.</p>
+   body=`${stepT(2,'Electrons')}<p class="lead">A neutral atom has the same number of electrons as protons. Click a seat to shade it (add an electron). Click again to remove it. Fill the inner energy level first.</p>
    <p style="margin:0;font-size:20px">Electrons placed: <b>${placed}</b> of ${z}</p>
-   <div class="row"><button class="md-btn filled" data-act="checkBuild">Check atom</button>${sc&&vIdx(z)>0?`<button class="md-btn tonal" data-act="fillInner">Fill inner rings</button>`:''}${c.tries.build>lim?`<button class="md-btn outlined" data-act="showBuild">Show me</button>`:''}<button class="md-btn text" data-act="clearSeats">Clear</button></div>`}
+   <div class="row"><button class="md-btn filled" data-act="checkBuild">Check atom</button>${sc&&vIdx(z)>0?`<button class="md-btn tonal" data-act="fillInner">Fill inner energy levels</button>`:''}${c.tries.build>lim?`<button class="md-btn outlined" data-act="showBuild">Show me</button>`:''}<button class="md-btn text" data-act="clearSeats">Clear</button></div>`}
   else if(c.ph=='envy'){const mv=moves(c.seats);
-   body=`${stepT(3,'Noble gas envy')}<p class="lead">Atoms lose, gain, or share electrons to get a full outer ring, like a noble gas. Which is the <b>least change</b> for ${nm(z)}?</p>
+   body=`${stepT(3,'Noble gas envy')}<p class="lead">Atoms lose, gain, or share electrons to get a full outer energy level, like a noble gas. Which is the <b>least change</b> for ${nm(z)}?</p>
    <div class="row" role="group" aria-label="Circle one">${CHOICES.map(([k,l])=>`<button class="chip ${c.choice==k?'on':''}" data-act="choice" data-v="${k}" aria-pressed="${c.choice==k}">${l}</button>`).join('')}</div>
-   ${c.choice=='loses'?`<p style="margin:0">Click electrons on the <b>outer ring</b> to remove them. Removed: <b>${mv}</b> e⁻</p>`:''}
-   ${c.choice=='gains'?`<p style="margin:0">Click empty seats on the <b>outer ring</b> to add electrons. Added: <b>${mv}</b> e⁻</p>`:''}
+   ${c.choice=='loses'?`<p style="margin:0">Click electrons in the <b>outer energy level</b> to remove them. Removed: <b>${mv}</b> e⁻</p>`:''}
+   ${c.choice=='gains'?`<p style="margin:0">Click empty seats in the <b>outer energy level</b> to add electrons. Added: <b>${mv}</b> e⁻</p>`:''}
    ${c.choice=='shares'?`<div class="row"><span>Shares</span><button class="tile" data-act="shareN" data-d="-1" aria-label="fewer">−</button><b style="font-size:22px;min-width:24px;text-align:center">${c.shareN}</b><button class="tile" data-act="shareN" data-d="1" aria-label="more">+</button><span>e⁻</span></div>`:''}
    <div class="row"><button class="md-btn filled" data-act="checkEnvy" ${c.choice?'':'disabled'}>Check</button></div>`}
   else if(c.ph=='ion'||c.ph=='done'){const dis=c.ph=='done'?'disabled':'';
-   body=`${stepT(4,'Write the ion')}<p class="lead">Use the counter. Put the number first, then the sign (like Mg<sup>2+</sup>). For a charge of 1, skip the number (like Na<sup>+</sup>).</p>
-   <div class="row" role="group" aria-label="Charge number"><span class="small" style="width:64px">Number</span>${['2','3','4'].map(n=>`<button class="tile ${c.ch.num==n?'on':''}" data-act="num" data-v="${n}" aria-pressed="${c.ch.num==n}" ${dis}>${n}</button>`).join('')}</div>
-   <div class="row" role="group" aria-label="Charge sign"><span class="small" style="width:64px">Sign</span>${['+',MINUS].map(n=>`<button class="tile ${c.ch.sign==n?'on':''}" data-act="sign" data-v="${n}" aria-pressed="${c.ch.sign==n}" aria-label="${n=='+'?'plus':'minus'}" ${dis}>${n}</button>`).join('')}
-   <button class="tile wide ${c.ch.none?'on':''}" data-act="none" aria-pressed="${c.ch.none}" ${dis}>No charge</button></div>
-   <p style="margin:0;font-size:20px">Your ion: <b style="font-size:26px">${ionHTML(z,c.ch.num,c.ch.sign,c.ch.none)}</b></p>
+   body=`${stepT(4,'Write the ion')}<p class="lead">Use the counter. Choose the charge. It goes in the <mark class="hlmk">highlighted</mark> spot on the card.</p>
+   ${qTiles(c.q,'setQ','',dis)}
+   <p style="margin:0;font-size:20px">Your ion: <b style="font-size:28px">${c.q==null?'?':ionHTML(z,c.q)}</b> <span class="small">${c.q===1||c.q===-1?`(a charge of ${qLabel(c.q)} is written as just ${c.q>0?'+':'−'})`:''}</span></p>
    <div class="row">${c.ph=='ion'?`<button class="md-btn filled" data-act="checkIon">Check ion</button>`:`<button class="md-btn filled" data-act="next">${S.cur<S.my.length-1?'Next card':teamOn()?'Go to team check':'Go to patterns'}</button>`}</div>`}
   // tally
   let tally='';if(c.ph!='nuc'){const faded=CONFIG.FADE_COUNTER_AFTER>0&&S.fadeN>=CONFIG.FADE_COUNTER_AFTER&&!c.showTally;
-    tally=faded?`<div class="row"><span class="small">You're getting good at charges, so the counter is hidden.</span><button class="md-btn text" data-act="showTally">Show counter</button></div>`:tallyHTML(z,eCount(c.seats),{hideBtn:CONFIG.FADE_COUNTER_AFTER>0&&S.fadeN>=CONFIG.FADE_COUNTER_AFTER})}
+    tally=faded?`<div class="row"><span class="small">You're getting good at charges, so the counter is hidden.</span><button class="md-btn text" data-act="showTally">Show counter</button></div>`:tallyHTML(z,eCount(c.seats),{hideBtn:CONFIG.FADE_COUNTER_AFTER>0&&S.fadeN>=CONFIG.FADE_COUNTER_AFTER,hl:S.cur<CONFIG.HIGHLIGHT_COUNTER_CARDS&&(c.ph=='envy'||c.ph=='ion'||c.ph=='done')})}
   return `<div class="cardcol">${cardView(c)}</div><section class="panel" aria-live="polite">${chips}${body}${msgHTML(c.msg)}${tally}</section>`}
 
 function hint(c,step,early,late){const lim=CONFIG.WRONG_TRIES_BEFORE_ANSWER;c.tries[step]++;c.msg={kind:'hint',html:c.tries[step]>lim?late:early};beep('bad')}
 function good(c,html){c.msg={kind:'good',html};beep('good')}
 
-const CLEARS=new Set(['seat','choice','shareN','num','sign','none','clearSeats','fillInner']);
+const CLEARS=new Set(['seat','choice','shareN','setQ','clearSeats','fillInner']);
 const A={
  seat(el){const c=curCard(),ri=+el.dataset.r,i=+el.dataset.i,v=c.seats[ri][i];
   if(c.ph=='build'){c.seats[ri][i]=v?0:1;beep('tap');return}
   if(c.ph!='envy')return;const vi=vIdx(c.z);
   if(!c.choice){snack('First choose: loses, gains, shares, or no change.');return}
   if(c.choice=='shares'||c.choice=='nochange'){snack(c.choice=='shares'?'Sharing does not move electrons on this card. Set the number with − and +.':'No change means no electrons move.');return}
-  if(c.choice=='loses'){if(ri!=vi||v==0||v==3){snack('Lose electrons from the outer ring (ring '+(vi+1)+').');return}c.seats[ri][i]=v==1?2:1}
-  if(c.choice=='gains'){if(ri!=vi||v==1||v==2){snack('Add electrons to empty seats on the outer ring (ring '+(vi+1)+').');return}c.seats[ri][i]=v==0?3:0}
+  if(c.choice=='loses'){if(ri!=vi||v==0||v==3){snack('Lose electrons from the outer energy level (energy level '+(vi+1)+').');return}c.seats[ri][i]=v==1?2:1}
+  if(c.choice=='gains'){if(ri!=vi||v==1||v==2){snack('Add electrons to empty seats in the outer energy level (energy level '+(vi+1)+').');return}c.seats[ri][i]=v==0?3:0}
   beep('tap')},
  checkNuc(){const c=curCard(),z=c.z;const pOk=+c.p===z&&c.p!=='',nOk=!CONFIG.ASK_NEUTRONS||(+c.n===nn(z)&&c.n!=='');
   if(pOk&&nOk){c.ph='build';good(c,`${z} protons${CONFIG.ASK_NEUTRONS?` and ${nn(z)} neutrons`:''}. Now add the electrons.`);return}
@@ -399,8 +415,8 @@ const A={
  checkBuild(){const c=curCard(),z=c.z,want=config(z),have=c.seats.map(r=>r.filter(v=>v==1).length),tot=have.reduce((a,b)=>a+b,0);
   if(tot!=z){hint(c,'build',`You placed ${tot} electron${tot==1?'':'s'}. A neutral atom has the same number of electrons as protons: <b>${z}</b>.`,`You need <b>${z}</b> electrons in all: ${want.filter(k=>k).join(', ')} from the inside out. Or press <b>Show me</b>.`);return}
   const bad=want.findIndex((k,i)=>k!=have[i]);
-  if(bad>=0){hint(c,'build',`Fill each ring before you start the next one. Ring ${bad+1} holds ${CAPS[bad]} electrons.`,`From the inside out, ${nm(z)} is <b>${want.filter(k=>k).join(', ')}</b>. Or press <b>Show me</b>.`);return}
-  c.ph='envy';good(c,`${nm(z)} is ${want.filter(k=>k).join(', ')}. Its outer ring has <b>${want[vIdx(z)]}</b> electron${want[vIdx(z)]>1?'s':''}.`)},
+  if(bad>=0){hint(c,'build',`Fill each energy level before you start the next one. Energy level ${bad+1} holds ${CAPS[bad]} electrons.`,`From the inside out, ${nm(z)} is <b>${want.filter(k=>k).join(', ')}</b>. Or press <b>Show me</b>.`);return}
+  c.ph='envy';good(c,`${nm(z)} is ${want.filter(k=>k).join(', ')}. Its outer energy level has <b>${want[vIdx(z)]}</b> electron${want[vIdx(z)]>1?'s':''}.`)},
  showBuild(){const c=curCard();c.seats=neutralSeats(c.z);c.msg={kind:'info',html:'Here is the atom. Compare it to yours, then press <b>Check atom</b>.'}},
  fillInner(){const c=curCard(),vi=vIdx(c.z);for(let ri=0;ri<vi;ri++)c.seats[ri]=c.seats[ri].map(()=>1);beep('tap')},
  clearSeats(){const c=curCard();c.seats=emptySeats()},
@@ -411,29 +427,27 @@ const A={
   const ok=(c.choice==a.choice&&n==a.n)||(z==1&&c.choice=='gains'&&n==1);
   if(ok){c.ph='ion';const e=eCount(c.seats);
    if(c.choice=='shares')good(c,`${nm(z)} could lose 4 or gain 4. It's a tie, so it <b>shares</b> 4 electrons with other atoms instead.`);
-   else if(c.choice=='nochange')good(c,`${nm(z)} is a noble gas. Its outer ring is already full, so nothing changes.`);
+   else if(c.choice=='nochange')good(c,`${nm(z)} is a noble gas. Its outer energy level is already full, so nothing changes.`);
    else if(e==0)good(c,`Hydrogen lost its only electron. Now it is just a proton.`);
-   else good(c,`Now ${nm(z)}'s rings are <b>${cfgStr(c.seats)}</b>, the same as <b>${NG[e]}</b>. That's noble gas envy!`);
+   else good(c,`Now ${nm(z)}'s energy levels are <b>${cfgStr(c.seats)}</b>, the same as <b>${NG[e]}</b>. That's noble gas envy!`);
    return}
   const v=a.v,cap=a.cap;
   if(c.choice!=a.choice&&!(z==1&&c.choice=='gains')){
-   let early;if(a.choice=='nochange')early=`Look at the outer ring of ${nm(z)}. Is there an empty seat? A full outer ring is what noble gases have.`;
-   else if(a.choice=='shares')early=`Count the outer-ring electrons: ${v}. ${nm(z)} could lose ${v} or gain ${cap-v}. It's a tie! Atoms in this column share instead.`;
-   else early=`Count the outer-ring electrons: <b>${v}</b>. To get a full outer ring, ${sym(z)} could lose ${v} or gain ${cap-v}. Atoms do the smaller change.`;
+   let early;if(a.choice=='nochange')early=`Look at the outer energy level of ${nm(z)}. Is there an empty seat? A full outer energy level is what noble gases have.`;
+   else if(a.choice=='shares')early=`Count the outer-energy-level electrons: ${v}. ${nm(z)} could lose ${v} or gain ${cap-v}. It's a tie! Atoms in this column share instead.`;
+   else early=`Count the outer-energy-level electrons: <b>${v}</b>. To get a full outer energy level, ${sym(z)} could lose ${v} or gain ${cap-v}. Atoms do the smaller change.`;
    hint(c,'envy',early,`${nm(z)} <b>${a.choice=='nochange'?'has no change':a.choice} ${a.choice=='nochange'?'':a.n+' e⁻'}</b>.`);return}
-  const early=c.choice=='loses'?'Remove electrons until the outer ring is empty. Then the full ring inside it becomes the outer ring.':c.choice=='gains'?`Add electrons until the outer ring is full (${cap} seats).`:`How many electrons does ${sym(z)} need to share? Count its outer-ring electrons.`;
+  const early=c.choice=='loses'?'Remove electrons until the outer energy level is empty. Then the full energy level inside it becomes the outer one.':c.choice=='gains'?`Add electrons until the outer energy level is full (${cap} seats).`:`How many electrons does ${sym(z)} need to share? Count its outer-energy-level electrons.`;
   hint(c,'envy',early,`${nm(z)} ${c.choice} <b>${a.n}</b> e⁻.`)},
- num(el){const c=curCard();c.ch.num=c.ch.num==el.dataset.v?'':el.dataset.v;c.ch.none=false;beep('tap')},
- sign(el){const c=curCard();c.ch.sign=c.ch.sign==el.dataset.v?'':el.dataset.v;c.ch.none=false;beep('tap')},
- none(){const c=curCard();c.ch={num:'',sign:'',none:!c.ch.none};beep('tap')},
+ setQ(el){const c=curCard();c.q=+el.dataset.v;beep('tap')},
  checkIon(){const c=curCard(),z=c.z,e=eCount(c.seats),net=z-e;
-  if(!c.ch.none&&!c.ch.sign){c.msg={kind:'hint',html:'Add a sign (+ or −), or choose <b>No charge</b>.'};return}
-  const stu=c.ch.none?0:(c.ch.sign=='+'?1:-1)*(c.ch.num?+c.ch.num:1);
+  if(c.q==null){c.msg={kind:'hint',html:'Choose a charge first.'};return}
+  const stu=c.q;
   if(stu==net){c.ph='done';const first=c.tries.ion==0;if(first&&net!=0)S.fadeN++;S.done=Object.values(S.cards).filter(x=>x.ph=='done').length;
    good(c,`Card complete! ${nm(z)} becomes <b>${netHTML(z,net)}</b>${net==0?(c.choice=='shares'?' (no ion: it shares)':' (no change)'):''}.`);return}
-  const late=`Charge = protons − electrons = ${z} − ${e} = <b>${net>0?net+'+':net<0?Math.abs(net)+MINUS:'0'}</b>. Set the tiles to match: ${netHTML(z,net)}.`;
+  const late=`Charge = protons − electrons = ${z} − ${e} = <b>${qLabel(net)}</b>. Choose <b>${qLabel(net)}</b>: ${netHTML(z,net)}.`;
   const who=net>0?'protons':'electrons',k=Math.abs(net);
-  if(net==0)hint(c,'ion',c.choice=='shares'?`${nm(z)} shares electrons. It doesn't lose or gain any, so it stays neutral. Choose <b>No charge</b>.`:'Look at the counter: every proton has an electron partner. Choose <b>No charge</b>.',late);
+  if(net==0)hint(c,'ion',c.choice=='shares'?`${nm(z)} shares electrons. It doesn't lose or gain any, so it stays neutral. Choose <b>0</b>.`:'Look at the counter: every proton has an electron partner. Choose <b>0</b>.',late);
   else if(stu==0)hint(c,'ion',`Look at the counter: ${k} ${k>1?who:who.slice(0,-1)} ${k>1?'have':'has'} no partner. That leftover is the charge.`,late);
   else if(Math.sign(stu)!=Math.sign(net))hint(c,'ion',`The particles with no partner are <b>${who}</b>. ${net>0?'Protons are positive (+).':'Electrons are negative (−).'}`,late);
   else hint(c,'ion',`Count the ${who} with no partner in the counter. That number is the charge.`,late)},
@@ -450,12 +464,12 @@ function initTeam(){if(S.team)return;const others=[];for(let z=1;z<=20;z++)if(!S
   for(const e of pool)if(pick.length<CONFIG.TEAM_MISTAKES&&!pick.includes(e))pick.push(e);
   S.team={errs:pick.map(e=>e.z),err:Object.fromEntries(pick.map(e=>[e.z,e])),verdict:{},fixed:{},fix:{},fa:0,open:null,note:null}}
 function teamCard(z){const T=S.team,er=T&&T.err[z]&&!T.fixed[z]?T.err[z]:null,a=answer(z);
-  if(er){const s=applyMoves(neutralSeats(z),z,er.choice,er.n);return{z,seats:s,choice:er.choice,count:er.choice=='shares'?er.n:er.choice=='nochange'?0:er.n,ion:er.raw?{raw:er.raw}:{num:er.num,sign:er.sign},html:ionHTML(z,er.num,er.sign,false,er.raw),err:er}}
-  const s=applyMoves(neutralSeats(z),z,a.choice,a.n);const ion=a.net?{num:Math.abs(a.net)>1?String(Math.abs(a.net)):'',sign:a.net>0?'+':MINUS}:{none:true};
+  if(er){const s=applyMoves(neutralSeats(z),z,er.choice,er.n);return{z,seats:s,choice:er.choice,count:er.choice=='shares'?er.n:er.choice=='nochange'?0:er.n,ion:er.raw?{raw:er.raw}:{q:er.q},html:ionHTML(z,er.q,er.raw),err:er}}
+  const s=applyMoves(neutralSeats(z),z,a.choice,a.n);const ion={q:a.net};
   return{z,seats:s,choice:a.choice,count:a.choice=='nochange'?0:a.n,ion,html:netHTML(z,a.net)}}
 function vbText(ch,n){return ch=='nochange'?'no change':ch=='shares'?`shares ${n} e⁻`:`${ch} ${n} e⁻`}
 function myCardInfo(z){const c=S.cards[z];if(!c||c.ph!='done')return null;const e=eCount(c.seats),net=z-e;
-  return{z,seats:c.seats,choice:c.choice,count:c.choice=='shares'?c.shareN:c.choice=='nochange'?0:moves(c.seats),ion:c.ch,html:netHTML(z,net)}}
+  return{z,seats:c.seats,choice:c.choice,count:c.choice=='shares'?c.shareN:c.choice=='nochange'?0:moves(c.seats),ion:{q:net},html:netHTML(z,net)}}
 function cellInfo(z){return S.my.includes(z)?(myCardInfo(z)||{z,seats:neutralSeats(z),choice:null,count:'',ion:null,html:'?'}):teamCard(z)}
 function ptHTML(mode){let h=`<div class="pt${mode=='analysis'?' small':''}">`+['1A','2A','3A','4A','5A','6A','7A','8A'].map(g=>`<div class="ghead">${g}</div>`).join('');
   const grid={};for(let z=1;z<=20;z++)grid[PERIOD(z)+'-'+GROUP(z)]=z;
@@ -473,14 +487,14 @@ function renderTeam(){const T=S.team,nf=Object.keys(T.fixed).length,all=nf>=T.er
   ${T.note?msgHTML(T.note):''}
   <div class="row"><b>Found and fixed: ${nf} of ${T.errs.length}</b>${all?`<button class="md-btn filled" data-act="toAnalysis">Go to patterns</button>`:''}${!all&&!unchecked.length?`<span class="small">You checked every card. Some marked “OK” still have mistakes. Look again.</span>`:''}</div></div>`}
 function inspectorHTML(z){const T=S.team,ci=cellInfo(z),mine=S.my.includes(z),er=T.err[z],fx=T.fix[z];
-  const card=cardSVG({z,p:z,n:CONFIG.ASK_NEUTRONS?nn(z):'',seats:ci.seats,choice:ci.choice,count:ci.count,ion:ci.ion,glow:null});
-  let side=(mine?'<p class="small" style="margin:0">Your card</p>':'')+tallyHTML(z,eCount(ci.seats));
+  const card=cardSVG({z,p:z,n:nn(z),seats:ci.seats,choice:ci.choice,count:ci.count,ion:ci.ion,glow:null,hlBox:!!fx&&!T.fixed[z]});
+  let side=(mine?'<p class="small" style="margin:0">Your card</p>':'')+tallyHTML(z,eCount(ci.seats),{hl:true});
   if(mine||T.fixed[z]){side+=T.fixed[z]?msgHTML({kind:'good',html:'You fixed this card.'}):'';side+=`<div class="row"><button class="md-btn filled" data-act="closeDlg">Close</button></div>`}
   else if(!fx){side+=`<p style="margin:0;font-size:18px">Is this card right?</p><div class="row"><button class="md-btn tonal" data-act="verdict" data-v="ok" data-z="${z}">Looks right</button><button class="md-btn outlined" data-act="verdict" data-v="bad" data-z="${z}">Has a mistake</button></div>${T.dnote&&T.dnote.z==z?msgHTML(T.dnote):''}<div class="row"><button class="md-btn text" data-act="closeDlg">Close</button></div>`}
   else{side+=`<h3>What's wrong?</h3><div class="reasons" role="radiogroup">${REASONS.map(([k,l])=>`<label><input type="radio" name="rsn" value="${k}" data-act="reason" data-z="${z}" ${fx.reason==k?'checked':''}>${l}</label>`).join('')}</div>
    <h3>Fix the card</h3><div class="row" role="group" aria-label="Circle one">${CHOICES.map(([k,l])=>`<button class="chip ${fx.choice==k?'on':''}" data-act="fxChoice" data-z="${z}" data-v="${k}" aria-pressed="${fx.choice==k}">${l}</button>`).join('')}</div>
    <div class="row"><button class="tile" data-act="fxCount" data-z="${z}" data-d="-1" aria-label="fewer">−</button><b style="font-size:22px;min-width:24px;text-align:center">${fx.count}</b><button class="tile" data-act="fxCount" data-z="${z}" data-d="1" aria-label="more">+</button><span>e⁻</span></div>
-   <div class="row">${['2','3','4'].map(n=>`<button class="tile ${fx.num==n?'on':''}" data-act="fxNum" data-z="${z}" data-v="${n}">${n}</button>`).join('')}${['+',MINUS].map(n=>`<button class="tile ${fx.sign==n?'on':''}" data-act="fxSign" data-z="${z}" data-v="${n}" aria-label="${n=='+'?'plus':'minus'}">${n}</button>`).join('')}<button class="tile wide ${fx.none?'on':''}" data-act="fxNone" data-z="${z}">No charge</button><b style="font-size:24px;margin-left:6px" aria-label="Fixed ion">${ionHTML(z,fx.num,fx.sign,fx.none)}</b></div>
+   ${qTiles(fx.q,'fxQ',`data-z="${z}"`)}<p style="margin:0">Fixed ion: <b style="font-size:24px">${fx.q==null?'?':ionHTML(z,fx.q)}</b></p>
    ${fx.msg?msgHTML(fx.msg):''}<div class="row"><button class="md-btn filled" data-act="checkFix" data-z="${z}">Check fix</button><button class="md-btn text" data-act="closeDlg">Close</button></div>`}
   return `<div class="insp"><div class="cardcol">${card}</div><div class="side">${side}</div></div>`}
 function openDlg(html){const d=document.getElementById('dlg');d.innerHTML=html;if(!d.open)d.showModal()}
@@ -490,22 +504,20 @@ Object.assign(A,{
  verdict(el){const z=+el.dataset.z,T=S.team,er=T.err[z];
   if(el.dataset.v=='ok'){T.verdict[z]='ok';A.closeDlg();snack(`Marked ${nm(z)} as OK.`);return}
   if(!er){T.fa++;T.dnote={z,kind:'hint',html:'Look again. This card is correct. Compare the counter to the charge.'};beep('bad');return}
-  delete T.verdict[z];const ci=teamCard(z);T.fix[z]={reason:'',choice:er.choice,count:er.n,num:er.raw?'':er.num,sign:er.raw?'':er.sign,none:false,tries:0,msg:null}},
+  delete T.verdict[z];const ci=teamCard(z);T.fix[z]={reason:'',choice:er.choice,count:er.n,q:er.raw?null:er.q,tries:0,msg:null}},
  reason(el){S.team.fix[+el.dataset.z].reason=el.value},
  fxChoice(el){const f=S.team.fix[+el.dataset.z];f.choice=el.dataset.v},
  fxCount(el){const f=S.team.fix[+el.dataset.z];f.count=Math.max(0,Math.min(8,f.count+ +el.dataset.d))},
- fxNum(el){const f=S.team.fix[+el.dataset.z];f.num=f.num==el.dataset.v?'':el.dataset.v;f.none=false},
- fxSign(el){const f=S.team.fix[+el.dataset.z];f.sign=f.sign==el.dataset.v?'':el.dataset.v;f.none=false},
- fxNone(el){const f=S.team.fix[+el.dataset.z];f.none=!f.none;f.num='';f.sign=''},
+ fxQ(el){const f=S.team.fix[+el.dataset.z];f.q=+el.dataset.v},
  checkFix(el){const z=+el.dataset.z,T=S.team,f=T.fix[z],er=T.err[z],a=answer(z),lim=CONFIG.WRONG_TRIES_BEFORE_ANSWER;
   if(!f.reason){f.msg={kind:'hint',html:'Pick what is wrong first.'};return}
-  const stu=f.none?0:f.sign?(f.sign=='+'?1:-1)*(f.num?+f.num:1):null;
+  const stu=f.q;
   const cOk=f.choice==a.choice,nOk=f.count==a.n,qOk=stu===a.net,rOk=REASON_OK[er.type].includes(f.reason);
   if(cOk&&nOk&&qOk&&rOk){T.fixed[z]=true;beep('good');snack(`Fixed! ${nm(z)} becomes ${ionTxt(netHTML(z,a.net))}.`);A.closeDlg();return}
   if(cOk&&nOk&&qOk){f.msg={kind:'hint',html:'Your fix is right. Now pick the reason that matches the mistake.'};beep('bad');return}
   f.tries++;beep('bad');
   if(f.tries>lim){f.msg={kind:'hint',html:`The right card: ${nm(z)} <b>${vbText(a.choice,a.n)}</b> and becomes <b>${netHTML(z,a.net)}</b>.`};return}
-  f.msg={kind:'hint',html:!cOk?'Check the circled choice. What is the least change to get a full outer ring?':!nOk?'Check the number of electrons. Count the outer-ring electrons.':'Check the charge: protons − electrons after the change. Number first, then sign.'}},
+  f.msg={kind:'hint',html:!cOk?'Check the circled choice. What is the least change to get a full outer energy level?':!nOk?'Check the number of electrons. Count the outer-energy-level electrons.':'Check the charge: protons − electrons after the change.'}},
  toAnalysis(){S.phase='analysis';S.reached.analysis=1},
  noop(){},
 });
@@ -525,9 +537,9 @@ function renderAnalysis(){const qs=qList(),k=qs[S.aq],a=S.ans;
   if(k=='ms')q=`<h2>5. Making Sense: Why do you think this lesson is called “Noble Gas Envy”?</h2><textarea class="md-textarea" data-fld="ms" data-fk="ms">${esc(a.ms)}</textarea>${st}`;
   if(k=='sb'){const s=a.sb,lim=CONFIG.WRONG_TRIES_BEFORE_ANSWER,dis=s.ok||s.tries>lim?'disabled':'';
    q=`<h2>6. Sb, antimony, gains three electrons.</h2><p style="margin:0">Write the symbol for an antimony atom that has gained three electrons:</p>
-   <div class="row">${['2','3','4'].map(n=>`<button class="tile ${s.num==n?'on':''}" data-act="sbNum" data-v="${n}" ${dis}>${n}</button>`).join('')}${['+',MINUS].map(n=>`<button class="tile ${s.sign==n?'on':''}" data-act="sbSign" data-v="${n}" aria-label="${n=='+'?'plus':'minus'}" ${dis}>${n}</button>`).join('')}<b style="font-size:28px;margin-left:12px">${fmtIon('Sb',s.num,s.sign,false)}</b>
+   ${qTiles(s.q,'sbQ','',dis)}<div class="row"><b style="font-size:28px">${s.q==null?'Sb':fmtIon('Sb',s.q)}</b>
    ${s.ok||s.tries>lim?'':`<button class="md-btn tonal" data-act="sbCheck">Check</button>`}</div>
-   ${s.ok?msgHTML({kind:'good',html:'Sb<sup>3−</sup>. Three extra electrons make it 3−.'}):s.tries>lim?msgHTML({kind:'info',html:'The answer is Sb<sup>3−</sup>: 3 extra electrons, so 3 more electrons than protons.'}):s.tries?msgHTML({kind:'hint',html:'Gaining electrons adds negative charges. How many extra electrons? Number first, then sign.'}):''}
+   ${s.ok?msgHTML({kind:'good',html:'Sb<sup>3−</sup>. Three extra electrons make it 3−.'}):s.tries>lim?msgHTML({kind:'info',html:'The answer is Sb<sup>3−</sup>: 3 extra electrons, so 3 more electrons than protons.'}):s.tries?msgHTML({kind:'hint',html:'Gaining electrons adds negative charges. How many extra electrons does antimony have?'}):''}
    ${s.ok||s.tries>lim?`<p style="margin:8px 0 0">Does antimony resemble a noble gas after gaining three electrons? Explain.</p><textarea class="md-textarea" data-fld="sbx" data-fk="sbx">${esc(a.sbx)}</textarea><p class="small" style="margin:0">Hint: find Sb on your periodic table. Which noble gas is closest?</p>`:''}`}
   if(k=='same'){const s=a.same,lim=CONFIG.WRONG_TRIES_BEFORE_ANSWER,opts=[['Cl','Cl<sup>−</sup>'],['Ca','Ca<sup>2+</sup>'],['Na','Na<sup>+</sup>'],['O','O<sup>2−</sup>'],['P','P<sup>3−</sup>']],fin=s.ok||s.tries>lim;
    q=`<h2>7. Choose all the ions that have the same number of electrons as S<sup>2−</sup>.</h2><div class="row">${opts.map(([k,h])=>`<button class="chip ${s.sel.includes(k)?'on':''}" data-act="sameSel" data-v="${k}" aria-pressed="${s.sel.includes(k)}" ${fin?'disabled':''} style="font-size:20px">${h}</button>`).join('')}</div>
@@ -538,8 +550,8 @@ function renderAnalysis(){const qs=qList(),k=qs[S.aq],a=S.ans;
 Object.assign(A,{
  aq(el){S.aq=+el.dataset.i},aqPrev(){S.aq=Math.max(0,S.aq-1)},
  aqNext(){if(S.aq<qList().length-1)S.aq++;else{S.phase='review';S.reached.review=1}},
- sbNum(el){const s=S.ans.sb;s.num=s.num==el.dataset.v?'':el.dataset.v},sbSign(el){const s=S.ans.sb;s.sign=s.sign==el.dataset.v?'':el.dataset.v},
- sbCheck(){const s=S.ans.sb;if(s.num=='3'&&s.sign==MINUS){s.ok=true;beep('good')}else{s.tries++;beep('bad')}},
+ sbQ(el){S.ans.sb.q=+el.dataset.v},
+ sbCheck(){const s=S.ans.sb;if(s.q==-3){s.ok=true;beep('good')}else{s.tries++;beep('bad')}},
  sameSel(el){const s=S.ans.same,v=el.dataset.v;s.sel=s.sel.includes(v)?s.sel.filter(x=>x!=v):[...s.sel,v]},
  sameCheck(){const s=S.ans.same;const ok=['Cl','Ca','P'].every(x=>s.sel.includes(x))&&s.sel.length==3;if(ok){s.ok=true;beep('good')}else{s.tries++;beep('bad')}},
 });
@@ -577,7 +589,7 @@ Object.assign(A,{
  go(el){const to=el.dataset.to;if(to=='review'&&S.phase=='finished')return;S.phase=to},
  sound(){SOUND=!SOUND;try{localStorage.setItem(SKEY,SOUND?'1':'0')}catch(e){}snack('Sound '+(SOUND?'on':'off'));beep('tap')},
  help(){openDlg(`<div class="dlg" style="max-width:640px"><h2>How Card Lab works</h2>
-  <p><b>Same as the paper cards.</b> A shaded seat is an electron. A lost electron gets an <b>X and an arrow out</b>. A gained electron gets a <b>filled seat and an arrow in</b>. Each ring has its own marks (triangles, dashes, stars, squares).</p>
+  <p><b>Same as the paper cards.</b> A shaded seat is an electron. A lost electron gets an <b>X and an arrow out</b>. A gained electron gets a <b>filled seat and an arrow in</b>. Each energy level has its own marks (triangles, dashes, stars, squares).</p>
   <p><b>The counter</b> pairs each proton (+) with an electron (−). Particles with no partner are outlined. They tell you the charge.</p>
   <p><b>Keyboard:</b> Tab to a seat, then press Enter or Space.</p>
   <p class="small">Your work saves on this device. Version: ${CONFIG.VERSION}</p>
