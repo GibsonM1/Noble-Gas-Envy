@@ -9,7 +9,7 @@ Live URL once pushed: `https://gibsonm1.github.io/Noble-Gas-Envy/`
 1. **Make cards** (default 6: Na, O, Mg, C, Cl, Ar). Each card has 4 steps:
    - Protons: enter p⁺. Neutrons are filled in for SS (`ASK_NEUTRONS`).
    - Arrange electrons: shade seats on the same energy-level template as the paper card. After the check, valence electrons turn light blue (core electrons stay dark blue), and step 3 shows a key for the two colors.
-   - Noble gas envy: circle loses / gains / shares / no change, then click electrons out (X + arrow) or into empty seats (arrow in). The arrows curve out to the side edge of the card, never down toward the words. Choosing **shares** (4A) finishes the card, and the bottom reads "Shares 4 e⁻ in covalent bonds. Does not form an ion."
+   - Noble gas envy: circle loses / gains / shares / no change, then click electrons out (X + arrow) or into empty seats (arrow in). The arrows curve out to the side edge of the card, never down toward the words. The "___ e⁻ becomes [ ]" line stays ghosted until a choice is made. After a correct check, the chosen word goes bold and larger and the others are struck through; a wrong check strikes just that word in gray. Choosing **shares** (4A) finishes the card, and the bottom reads "Shares 4 e⁻ in covalent bonds. Does not form an ion."
    - Write the ion: pick one charge tile, from 4− to 4+ (0 = no charge). 1+ shows as Na⁺ on the card. The charge spot on the card is highlighted. Cations show in red/pink and anions in blue, matching the counter.
    - The **p⁺/e⁻ counter** pairs every proton with an electron. The leftovers are highlighted in yellow, the same as the charge spot on the card, for the first 2 cards (`HIGHLIGHT_COUNTER_CARDS`). The counter hides itself after 3 first-try charges, and SS can reopen it.
 2. **Check team.** The other 14 cards arrive "made by tablemates." 3 of them hold mistakes taken from real student work:
@@ -54,4 +54,4 @@ Changing `CARDS_TO_MAKE` doesn't affect a student who has already started on tha
 - **Copy my answers** → paste into Classroom.
 - Close the tab, reopen it, and check that **Continue** resumes the work.
 
-Version: Nov 8, 2026, update 4
+Version: Nov 8, 2026, update 5

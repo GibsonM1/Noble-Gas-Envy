@@ -193,7 +193,7 @@ const CONFIG = {
   WRONG_TRIES_BEFORE_ANSWER: 2, // wrong tries before the answer is shown
   INCLUDE_EXTENSION: true,   // include the antimony question and the "same electrons as S2-" question
   SOUND_DEFAULT: false,      // sound on for a student's first visit
-  VERSION: 'Nov 8, 2026, update 4',
+  VERSION: 'Nov 8, 2026, update 5',
 };
 /* ============================================================== */
 
@@ -311,14 +311,17 @@ function cardSVG(c){const z=c.z;let s=`<svg viewBox="0 0 210 263" role="img" ari
     if(v==2)s+=moveArrow(P,false);
     if(v==3)s+=moveArrow(P,true);
   }));
-  for(const[k,lab]of CHOICES){s+=`<text class="word" x="${WORDX[k]}" y="212" dominant-baseline="central" font-size="10" fill="#000">${lab}</text>`;
-    if(c.choice==k)s+=`<ellipse cx="${WORDX[k]+WORDW[k]/2}" cy="212" rx="${WORDW[k]/2+5}" ry="8.5" fill="none" stroke="#6a3fb5" stroke-width="1.6"/>`}
+  const SC=1.25,WX={...WORDX};if(c.final&&c.choice){const ws=CHOICES.map(([k])=>WORDW[k]*(k==c.choice?SC:1)),g=(194-ws.reduce((a,b)=>a+b,0))/3;let x=8;CHOICES.forEach(([k],i)=>{WX[k]=x;x+=ws[i]+g})}
+  for(const[k,lab]of CHOICES){const win=c.final&&c.choice==k,out=(c.final&&c.choice!=k)||(c.ruled||[]).includes(k)&&c.choice!=k,sc=win?SC:1,w=WORDW[k]*sc,x=WX[k];
+    s+=`<text class="word" x="${x}" y="212" dominant-baseline="central" font-size="${10*sc}" font-weight="${win?700:400}" fill="${out?'#9a9a9a':'#000'}">${lab}</text>`;
+    if(out)s+=`<line x1="${x-1}" y1="212.5" x2="${x+w+1}" y2="212.5" stroke="#777" stroke-width="1.1"/>`;
+    if(c.choice==k)s+=`<ellipse cx="${x+w/2}" cy="212" rx="${w/2+5}" ry="${win?10:8.5}" fill="none" stroke="#6a3fb5" stroke-width="${win?2:1.6}"/>`}
   if(c.shareText){s+=`<text x="105" y="236" text-anchor="middle" font-size="11.5" fill="#222">Shares 4 e⁻ in covalent bonds.</text><text x="105" y="252" text-anchor="middle" font-size="11.5" font-weight="700" fill="#222">Does not form an ion.</text>`}
-  else{s+=`<line x1="12" y1="252" x2="42" y2="252" stroke="#000" stroke-width=".8"/>
+  else{s+=`<g opacity="${c.ghost?.2:1}"><line x1="12" y1="252" x2="42" y2="252" stroke="#000" stroke-width=".8"/>
 <text x="27" y="249" text-anchor="middle" font-size="14" font-weight="700" fill="#222">${c.count??''}</text>
 <text x="44" y="248" dominant-baseline="central" font-size="13" fill="#000">e⁻</text>
 <text x="70" y="248" dominant-baseline="central" font-size="13" fill="#000">becomes</text>
-<path d="M136,260H170V239.5H191V222.5H165V229H136Z" fill="none" stroke="#000" stroke-width=".9" stroke-dasharray="2.8 2.1"/>`;
+<path d="M136,260H170V239.5H191V222.5H165V229H136Z" fill="none" stroke="#000" stroke-width=".9" stroke-dasharray="2.8 2.1"/></g>`;
   if(c.hlBox)s+=`<ellipse cx="178" cy="231" rx="19" ry="14" fill="#FFEB3B" opacity=".6"/><ellipse cx="178" cy="231" rx="19" ry="14" fill="none" stroke="#F9A825" stroke-width="2.4"/>`;
   if(c.ion){const i=c.ion,t=i.raw||qSup(i.q),sg=i.raw?(i.raw[0]=='+'?1:-1):Math.sign(i.q||0),col=sg>0?'#C2185B':sg<0?'#1565C0':'#222';
     s+=`<text x="151" y="246" text-anchor="middle" dominant-baseline="central" font-size="18" fill="${col}"${sg?' font-weight="700"':''}>${sym(z)}</text>`;
@@ -380,7 +383,7 @@ function cardView(c){const ans=answer(c.z);
   const ion=(c.ph=='ion'||c.ph=='done')?{q:c.q}:null;
   let glow=null;if(c.ph=='envy')glow=vIdx(c.z);if(c.ph=='ion'||c.ph=='done'){if(c.choice!='shares')glow=glowRing(c.seats)}
   const vi=(c.ph=='envy'||c.ph=='ion'||c.ph=='done')?vIdx(c.z):null;
-  return cardSVG({z:c.z,p:c.ph=='nuc'?c.p:c.z,n:CONFIG.ASK_NEUTRONS&&c.ph=='nuc'?c.n:nn(c.z),seats:c.seats,choice:(c.ph=='envy'||c.ph=='ion'||c.ph=='done')?c.choice:null,count,ion,glow,vi,hlBox:c.ph=='ion',shareText:c.choice=='shares'&&(c.ph=='envy'||c.ph=='done'),interactive:c.ph=='build'||c.ph=='envy'})}
+  return cardSVG({z:c.z,p:c.ph=='nuc'?c.p:c.z,n:CONFIG.ASK_NEUTRONS&&c.ph=='nuc'?c.n:nn(c.z),seats:c.seats,choice:(c.ph=='envy'||c.ph=='ion'||c.ph=='done')?c.choice:null,count,ion,glow,vi,ghost:!(c.choice&&(c.ph=='envy'||c.ph=='ion'||c.ph=='done')),final:c.ph=='ion'||c.ph=='done',ruled:c.ruled,hlBox:c.ph=='ion',shareText:c.choice=='shares'&&(c.ph=='envy'||c.ph=='done'),interactive:c.ph=='build'||c.ph=='envy'})}
 function msgHTML(m){if(!m)return'';const tag={good:'Nice!',hint:'Hint:',info:'Note:'}[m.kind];return `<div class="msg ${m.kind}" role="status"><b class="tag">${tag}</b><span>${m.html}</span></div>`}
 function renderCards(){const c=curCard(),z=c.z,lim=CONFIG.WRONG_TRIES_BEFORE_ANSWER;
   const chips=`<div class="cchips" aria-label="Your cards">${S.my.map((mz,i)=>{const cd=S.cards[mz];const dn=cd&&cd.ph=='done';const cls=i==S.cur?'cur':dn?'dn':i>S.cur?'lk':'';
@@ -450,7 +453,7 @@ const A={
    else good(c,`Now ${nm(z)}'s energy levels are <b>${cfgStr(c.seats)}</b>, the same as <b>${NG[e]}</b>. That's noble gas envy!`);
    return}
   const v=a.v,cap=a.cap;
-  if(c.choice!=a.choice&&!(z==1&&c.choice=='gains')){
+  if(c.choice!=a.choice&&!(z==1&&c.choice=='gains')){c.ruled=c.ruled||[];if(!c.ruled.includes(c.choice))c.ruled.push(c.choice);
    let early;if(a.choice=='nochange')early=`Look at the outer energy level of ${nm(z)}. Is there an empty seat? A full outer energy level is what noble gases have.`;
    else if(a.choice=='shares')early=`Count the outer-energy-level electrons: ${v}. ${nm(z)} could lose ${v} or gain ${cap-v}. It's a tie! Atoms in this column share instead.`;
    else early=`Count the outer-energy-level electrons: <b>${v}</b>. To get a full outer energy level, ${sym(z)} could lose ${v} or gain ${cap-v}. Atoms do the smaller change.`;
@@ -509,7 +512,7 @@ function renderTeam(){const T=S.team,nf=Object.keys(T.fixed).length,all=nf>=T.er
   ${T.note?msgHTML(T.note):''}
   <div class="row"><b>Found and fixed: ${nf} of ${T.errs.length}</b>${all?`<button class="md-btn filled" data-act="toAnalysis">Go to patterns</button>`:''}${!all&&!unchecked.length?`<span class="small">You checked every card. Some marked “OK” still have mistakes. Look again.</span>`:''}</div></div>`}
 function inspectorHTML(z){const T=S.team,ci=cellInfo(z),mine=S.my.includes(z),er=T.err[z],fx=T.fix[z];
-  const card=cardSVG({z,p:z,n:nn(z),seats:ci.seats,choice:ci.choice,count:ci.count,ion:ci.ion,glow:null,vi:vIdx(z),hlBox:!!fx&&!T.fixed[z]&&ci.choice!='shares',shareText:ci.choice=='shares'});
+  const card=cardSVG({z,p:z,n:nn(z),seats:ci.seats,choice:ci.choice,count:ci.count,ion:ci.ion,glow:null,vi:vIdx(z),final:true,hlBox:!!fx&&!T.fixed[z]&&ci.choice!='shares',shareText:ci.choice=='shares'});
   let side=(mine?'<p class="small" style="margin:0">Your card</p>':'')+tallyHTML(z,eCount(ci.seats),{hl:true});
   if(mine||T.fixed[z]){side+=T.fixed[z]?msgHTML({kind:'good',html:'You fixed this card.'}):'';side+=`<div class="row"><button class="md-btn filled" data-act="closeDlg">Close</button></div>`}
   else if(!fx){side+=`<p style="margin:0;font-size:18px">Is this card right?</p><div class="row"><button class="md-btn tonal" data-act="verdict" data-v="ok" data-z="${z}">Looks right</button><button class="md-btn outlined" data-act="verdict" data-v="bad" data-z="${z}">Has a mistake</button></div>${T.dnote&&T.dnote.z==z?msgHTML(T.dnote):''}<div class="row"><button class="md-btn text" data-act="closeDlg">Close</button></div>`}
